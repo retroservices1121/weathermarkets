@@ -10,18 +10,18 @@ import '@/styles/globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SPREDD Markets - Base Chain Prediction Markets',
-  description: 'Decentralized forecasting powered by smart contracts on Base. Predict, rank, and earn weekly.',
-  keywords: ['prediction markets', 'polymarket', 'base chain', 'crypto', 'betting'],
+  title: 'Weather Markets - Weather Prediction Markets',
+  description: 'Weather prediction markets powered by Polymarket. Forecast temperature, storms, earthquakes, and climate events.',
+  keywords: ['weather', 'prediction markets', 'polymarket', 'forecasting', 'climate'],
   openGraph: {
-    title: 'SPREDD Markets',
-    description: 'Decentralized forecasting powered by smart contracts on Base',
+    title: 'Weather Markets',
+    description: 'Weather prediction markets powered by Polymarket',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SPREDD Markets',
-    description: 'Decentralized forecasting powered by smart contracts on Base',
+    title: 'Weather Markets',
+    description: 'Weather prediction markets powered by Polymarket',
   },
 };
 

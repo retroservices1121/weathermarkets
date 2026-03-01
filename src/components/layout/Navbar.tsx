@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Menu, X, Search, LogOut } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
-import { BuySpreddButton } from '@/components/ui/BuySpreddButton';
 import { useRouter, usePathname } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import { truncateAddress } from '@/lib/utils';
@@ -84,7 +83,6 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
 
           {/* Right side actions */}
           <div className="hidden md:flex items-center space-x-3">
-            <BuySpreddButton />
             {privyReady && authenticated && walletAddress ? (
               <div className="flex items-center gap-2">
                 <div className="px-4 py-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg">
@@ -138,7 +136,6 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
                 </div>
               </form>
               <div className="flex flex-col space-y-2 pt-2 px-2 items-center">
-                <BuySpreddButton />
                 {privyReady && authenticated && walletAddress ? (
                   <div className="flex items-center gap-2 w-full">
                     <div className="flex-1 px-4 py-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg text-center">
