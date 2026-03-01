@@ -143,28 +143,18 @@ export interface Trade {
 
 // Categories
 export type MarketCategory =
-  | 'All'
-  | 'Politics'
-  | 'Sports'
-  | 'Crypto'
-  | 'Business'
-  | 'Science'
-  | 'Technology'
-  | 'Entertainment'
-  | 'Economics'
-  | 'News';
+  | 'All Weather'
+  | 'Temperature'
+  | 'Storms'
+  | 'Earthquakes'
+  | 'Climate';
 
 export const MARKET_CATEGORIES: MarketCategory[] = [
-  'All',
-  'Politics',
-  'Sports',
-  'Crypto',
-  'Business',
-  'Science',
-  'Technology',
-  'Entertainment',
-  'Economics',
-  'News',
+  'All Weather',
+  'Temperature',
+  'Storms',
+  'Earthquakes',
+  'Climate',
 ];
 
 // API Response Types

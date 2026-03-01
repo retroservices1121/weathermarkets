@@ -10,12 +10,10 @@ import { useTradingSession } from '@/hooks/useTradingSession';
 import { useTradeExecution } from '@/hooks/useTradeExecution';
 import { PriceChart } from '@/components/trade/PriceChart';
 import { OrderBook } from '@/components/trade/OrderBook';
-import { TrendingBar } from '@/components/layout/TrendingBar';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { formatVolume, isSportsMatchMarket } from '@/lib/utils';
 import { apiClient } from '@/lib/api';
 import { FEE_RATE } from '@/lib/constants';
-import type { MarketCategory } from '@/types';
 
 interface MarketPageProps {
   params: { slug: string };
@@ -30,7 +28,6 @@ export default function MarketPage({ params }: MarketPageProps) {
   const [shares, setShares] = useState('');
   const [expirationEnabled, setExpirationEnabled] = useState(false);
   const [activeTab, setActiveTab] = useState<'markets' | 'comments' | 'holders' | 'activity'>('markets');
-  const [activeCategory, setActiveCategory] = useState<MarketCategory>('Sports');
   const [hoveredProbability, setHoveredProbability] = useState<number | null>(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [sportsCategories, setSportsCategories] = useState<Array<{ name: string; emoji: string; count: number }>>([]);
@@ -124,13 +121,6 @@ export default function MarketPage({ params }: MarketPageProps) {
   return (
     <>
       <div className="min-h-screen bg-[#0a0b0f]">
-        {/* Trending Bar */}
-        <TrendingBar
-          activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
-          showSearchBar={false}
-        />
-
       <div className="max-w-[1600px] mx-auto px-6 lg:px-8 py-8">
         <div className="flex items-start gap-8">
           {/* Left Sidebar - Sports Categories */}

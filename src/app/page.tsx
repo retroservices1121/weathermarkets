@@ -8,6 +8,32 @@ import { apiClient } from '@/lib/api';
 import type { PolymarketEvent } from '@/types';
 
 type SortOption = 'volume' | 'newest' | 'ending';
+type WeatherFilter = 'all' | 'temperature' | 'storms' | 'earthquakes' | 'climate';
+
+const WEATHER_FILTERS: { value: WeatherFilter; label: string; icon: string }[] = [
+  { value: 'all', label: 'All Weather', icon: '🌍' },
+  { value: 'temperature', label: 'Temperature', icon: '🌡️' },
+  { value: 'storms', label: 'Storms', icon: '🌪️' },
+  { value: 'earthquakes', label: 'Earthquakes', icon: '🌋' },
+  { value: 'climate', label: 'Climate', icon: '🌎' },
+];
+
+function matchesFilter(event: PolymarketEvent, filter: WeatherFilter): boolean {
+  if (filter === 'all') return true;
+  const text = `${event.title} ${event.description ?? ''}`.toLowerCase();
+  switch (filter) {
+    case 'temperature':
+      return text.includes('temperature') || text.includes('°') || text.includes('highest temp') || text.includes('hottest') || text.includes('coldest');
+    case 'storms':
+      return text.includes('storm') || text.includes('hurricane') || text.includes('tornado') || text.includes('cyclone') || text.includes('typhoon');
+    case 'earthquakes':
+      return text.includes('earthquake') || text.includes('seismic') || text.includes('quake');
+    case 'climate':
+      return text.includes('climate') || text.includes('global warming') || text.includes('sea level') || text.includes('hottest year') || text.includes('rank among');
+    default:
+      return true;
+  }
+}
 
 function SearchParamsHandler({ setSearchQuery }: { setSearchQuery: (query: string) => void }) {
   const searchParams = useSearchParams();
@@ -25,6 +51,7 @@ function SearchParamsHandler({ setSearchQuery }: { setSearchQuery: (query: strin
 function HomePageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<SortOption>('volume');
+  const [weatherFilter, setWeatherFilter] = useState<WeatherFilter>('all');
   const [events, setEvents] = useState<PolymarketEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -51,6 +78,9 @@ function HomePageContent() {
   // Filter and sort
   const filteredEvents = (() => {
     let result = [...events];
+
+    // Weather sub-category filter
+    result = result.filter(e => matchesFilter(e, weatherFilter));
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -138,6 +168,24 @@ function HomePageContent() {
               {totalCount} weather market{totalCount !== 1 ? 's' : ''}
             </span>
           )}
+        </div>
+
+        {/* Weather Sub-Category Filter Pills */}
+        <div className="px-4 lg:px-6 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          {WEATHER_FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setWeatherFilter(f.value)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
+                weatherFilter === f.value
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-[#0f1117] text-gray-400 border border-gray-700 hover:bg-[#1f2330] hover:text-white'
+              }`}
+            >
+              <span>{f.icon}</span>
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 

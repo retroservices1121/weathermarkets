@@ -12,12 +12,10 @@ import { useTradingSession } from '@/hooks/useTradingSession';
 import { useTradeExecution, calculatePlatformFee } from '@/hooks/useTradeExecution';
 import { EventPriceChart } from '@/components/trade/EventPriceChart';
 import { OrderBook } from '@/components/trade/OrderBook';
-import { TrendingBar } from '@/components/layout/TrendingBar';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { SportsMarketsSections } from '@/components/events/SportsMarketsSections';
 import { formatVolume, parseOutcomePrices, isSportsMatch } from '@/lib/utils';
 import { FEE_RATE } from '@/lib/constants';
-import type { MarketCategory } from '@/types';
 
 interface EventPageProps {
   params: { slug: string };
@@ -35,7 +33,6 @@ export default function EventPage({ params }: EventPageProps) {
   const [shares, setShares] = useState('');
   const [expirationEnabled, setExpirationEnabled] = useState(false);
   const [activeTab, setActiveTab] = useState<'markets' | 'activity' | 'about'>('markets');
-  const [activeCategory, setActiveCategory] = useState<MarketCategory>('All');
   const [hoveredProbability, setHoveredProbability] = useState<number | null>(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
 
@@ -147,13 +144,6 @@ export default function EventPage({ params }: EventPageProps) {
   return (
     <>
       <div className="min-h-screen bg-[#0a0b0f]">
-        {/* Trending Bar */}
-        <TrendingBar
-          activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
-          showSearchBar={false}
-        />
-
         <div className="max-w-[1600px] mx-auto px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-8">
