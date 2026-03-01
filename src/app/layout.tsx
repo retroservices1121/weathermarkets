@@ -4,6 +4,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { WeatherBackground } from '@/components/weather/WeatherBackground';
 import { WeatherTicker } from '@/components/layout/WeatherTicker';
+import { PrivyProviders } from '@/providers/PrivyProviders';
 import '@/styles/globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -32,11 +33,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} min-h-screen flex flex-col text-white`}>
-        <WeatherBackground />
-        <WeatherTicker />
-        <Navbar />
-        <main className="relative z-10 flex-grow">{children}</main>
-        <Footer />
+        <PrivyProviders>
+          <WeatherBackground />
+          <WeatherTicker />
+          <Navbar />
+          <main className="relative z-10 flex-grow">{children}</main>
+          <Footer />
+        </PrivyProviders>
       </body>
     </html>
   );

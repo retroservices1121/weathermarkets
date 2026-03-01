@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Menu, X, Search } from 'lucide-react';
+import { Menu, X, Search, LogOut } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { BuySpreddButton } from '@/components/ui/BuySpreddButton';
 import { useRouter, usePathname } from 'next/navigation';
+import { usePrivy } from '@privy-io/react-auth';
+import { truncateAddress } from '@/lib/utils';
 
 export interface NavbarProps {
   onSearch?: (query: string) => void;
@@ -17,16 +19,45 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
 
+  let privyReady = false;
+  let authenticated = false;
+  let login: (() => void) | undefined;
+  let logout: (() => Promise<void>) | undefined;
+  let user: any = null;
+
+  try {
+    const privy = usePrivy();
+    privyReady = privy.ready;
+    authenticated = privy.authenticated;
+    login = privy.login;
+    logout = privy.logout;
+    user = privy.user;
+  } catch {
+    // Privy provider not available (no app ID configured)
+  }
+
+  const walletAddress = user?.wallet?.address || user?.embeddedWallet?.address;
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      // If we're on the homepage and have an onSearch callback, use it
       if (pathname === '/' && onSearch) {
         onSearch(searchQuery);
       } else {
-        // Otherwise redirect to homepage with search query
         router.push(`/?q=${encodeURIComponent(searchQuery)}`);
       }
+    }
+  };
+
+  const handleConnectClick = () => {
+    if (login) {
+      login();
+    }
+  };
+
+  const handleLogout = async () => {
+    if (logout) {
+      await logout();
     }
   };
 
@@ -53,15 +84,31 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
 
           {/* Right side actions */}
           <div className="hidden md:flex items-center space-x-3">
-            {/* <BuySpreddButton /> */}
-            <div className="relative">
-              <button className="px-5 py-2.5 bg-blue-500 text-white text-base font-semibold rounded-lg">
+            <BuySpreddButton />
+            {privyReady && authenticated && walletAddress ? (
+              <div className="flex items-center gap-2">
+                <div className="px-4 py-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg">
+                  <span className="text-white text-sm font-semibold">
+                    {truncateAddress(walletAddress)}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg hover:bg-[#2a3142] transition-colors"
+                  title="Disconnect"
+                >
+                  <LogOut className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleConnectClick}
+                disabled={!privyReady}
+                className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-base font-semibold rounded-lg transition-colors"
+              >
                 Connect Wallet
               </button>
-              <div className="absolute inset-0 bg-[#1a1d26]/70 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                <span className="text-gray-400 text-sm font-semibold">Coming Soon</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -91,15 +138,31 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
                 </div>
               </form>
               <div className="flex flex-col space-y-2 pt-2 px-2 items-center">
-                {/* <BuySpreddButton /> */}
-                <div className="relative w-full">
-                  <button className="w-full px-5 py-2.5 bg-blue-500 text-white text-base font-semibold rounded-lg">
+                <BuySpreddButton />
+                {privyReady && authenticated && walletAddress ? (
+                  <div className="flex items-center gap-2 w-full">
+                    <div className="flex-1 px-4 py-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg text-center">
+                      <span className="text-white text-sm font-semibold">
+                        {truncateAddress(walletAddress)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="p-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg hover:bg-[#2a3142] transition-colors"
+                      title="Disconnect"
+                    >
+                      <LogOut className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleConnectClick}
+                    disabled={!privyReady}
+                    className="w-full px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-base font-semibold rounded-lg transition-colors"
+                  >
                     Connect Wallet
                   </button>
-                  <div className="absolute inset-0 bg-[#1a1d26]/70 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                    <span className="text-gray-400 text-sm font-semibold">Coming Soon</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

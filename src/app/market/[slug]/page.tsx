@@ -3,14 +3,18 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Share2, Bookmark, TrendingUp, Users, Trophy, Flame, Clock, Info } from 'lucide-react';
+import { ArrowLeft, Share2, Bookmark, TrendingUp, Users, Trophy, Flame, Clock, Info, Loader2 } from 'lucide-react';
+import { usePrivy } from '@privy-io/react-auth';
 import { useMarketDetails, usePriceHistory } from '@/hooks/useMarketDetails';
+import { useTradingSession } from '@/hooks/useTradingSession';
+import { useTradeExecution } from '@/hooks/useTradeExecution';
 import { PriceChart } from '@/components/trade/PriceChart';
 import { OrderBook } from '@/components/trade/OrderBook';
 import { TrendingBar } from '@/components/layout/TrendingBar';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { formatVolume, isSportsMatchMarket } from '@/lib/utils';
 import { apiClient } from '@/lib/api';
+import { FEE_RATE } from '@/lib/constants';
 import type { MarketCategory } from '@/types';
 
 interface MarketPageProps {
@@ -34,6 +38,26 @@ export default function MarketPage({ params }: MarketPageProps) {
   const { market, loading, error } = useMarketDetails(slug);
   const outcome = selectedOutcome === 0 ? 'YES' : 'NO';
   const { priceHistory } = usePriceHistory(slug, outcome, timeInterval);
+
+  // Trading integration
+  let authenticated = false;
+  let privyLogin: (() => void) | undefined;
+  try {
+    const privy = usePrivy();
+    authenticated = privy.authenticated;
+    privyLogin = privy.login;
+  } catch {
+    // Privy not available
+  }
+  const { isReady: tradingReady, isInitializing, clobClient, error: tradingError, initialize: initTrading } = useTradingSession();
+  const { execute: executeTrade, isSubmitting } = useTradeExecution(clobClient);
+
+  // Auto-initialize trading session when authenticated
+  useEffect(() => {
+    if (authenticated && !tradingReady && !isInitializing) {
+      initTrading();
+    }
+  }, [authenticated, tradingReady, isInitializing, initTrading]);
 
   useEffect(() => {
     const fetchSportsCategories = async () => {
@@ -77,8 +101,25 @@ export default function MarketPage({ params }: MarketPageProps) {
   // Calculate trading values
   const avgPrice = limitPrice ? parseFloat(limitPrice) / 100 : currentPrice;
   const sharesNum = parseFloat(shares) || 0;
-  const total = orderType === 'buy' ? (avgPrice * sharesNum) : 0;
-  const potentialReturn = orderType === 'buy' ? (sharesNum - total) : (sharesNum * avgPrice);
+  const subtotal = orderType === 'buy' ? (avgPrice * sharesNum) : 0;
+  const platformFee = subtotal * FEE_RATE;
+  const total = subtotal + platformFee;
+  const potentialReturn = orderType === 'buy' ? (sharesNum - subtotal) : (sharesNum * avgPrice);
+
+  const handleTrade = async () => {
+    if (!market || !sharesNum) return;
+
+    const tokenId = market.clobTokenIds?.[selectedOutcome];
+    if (!tokenId) return;
+
+    await executeTrade({
+      tokenId,
+      side: orderType === 'buy' ? 'BUY' : 'SELL',
+      price: avgPrice,
+      size: sharesNum,
+      negRisk: market.negRisk,
+    });
+  };
 
   return (
     <>
@@ -357,13 +398,21 @@ export default function MarketPage({ params }: MarketPageProps) {
                 {/* Right: Trading Panel - Sticky */}
                 <div className="w-full lg:w-[340px]">
                   <div className="sticky top-8 bg-[#1a1f2e] rounded-2xl p-3 space-y-2 border border-gray-800/50 shadow-xl relative">
-                    {/* Coming Soon Overlay */}
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center">
-                      <div className="text-center px-4">
-                        <h3 className="text-white text-2xl font-bold mb-2">Coming Soon</h3>
-                        <p className="text-gray-400 text-sm">Trading will be available shortly</p>
+                    {/* Wallet Connection Overlay */}
+                    {!authenticated && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center">
+                        <div className="text-center px-4">
+                          <h3 className="text-white text-xl font-bold mb-2">Connect to Trade</h3>
+                          <p className="text-gray-400 text-sm mb-4">Connect your wallet to start trading</p>
+                          <button
+                            onClick={() => privyLogin?.()}
+                            className="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+                          >
+                            Connect Wallet
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     {/* Market Header with Icon */}
                     <div className="flex items-center gap-2 pb-2 border-b border-gray-700/50">
                       <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-[#3B82F6] to-[#60A5FA] shadow-lg">
@@ -537,22 +586,46 @@ export default function MarketPage({ params }: MarketPageProps) {
                     {/* Summary */}
                     <div className="space-y-1 pt-1.5 border-t border-gray-700/30">
                       <div className="flex justify-between items-center">
+                        <span className="text-gray-300 font-semibold text-xs">Subtotal</span>
+                        <span className="text-white font-bold text-base tabular-nums">${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 font-semibold text-xs">Platform Fee (0.50%)</span>
+                        <span className="text-gray-400 font-semibold text-xs tabular-nums">${platformFee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-gray-800/20">
                         <span className="text-gray-300 font-semibold text-xs">Total</span>
-                        <span className="text-white font-bold text-base tabular-nums">${total.toFixed(0)}</span>
+                        <span className="text-white font-bold text-base tabular-nums">${total.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-300 font-semibold text-xs">To Win</span>
-                        <span className="text-emerald-400 font-bold text-base tabular-nums">${potentialReturn.toFixed(0)}</span>
+                        <span className="text-emerald-400 font-bold text-base tabular-nums">${potentialReturn.toFixed(2)}</span>
                       </div>
                     </div>
 
                     {/* Trade Button */}
                     <button
-                      disabled={!shares || parseFloat(shares) <= 0}
+                      onClick={handleTrade}
+                      disabled={!shares || parseFloat(shares) <= 0 || isSubmitting || (authenticated && !tradingReady)}
                       className="w-full py-2.5 bg-gradient-to-r from-[#4A9DFF] to-[#3b82f6] hover:from-[#3d8ae6] hover:to-[#2563eb] disabled:from-[#2a3142] disabled:to-[#2a3142] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all text-xs shadow-lg"
                     >
-                      Trade
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Submitting...
+                        </span>
+                      ) : isInitializing ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Initializing...
+                        </span>
+                      ) : (
+                        'Trade'
+                      )}
                     </button>
+                    {tradingError && (
+                      <p className="text-xs text-rose-400 text-center">{tradingError}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -616,13 +689,21 @@ export default function MarketPage({ params }: MarketPageProps) {
                 {/* Right Column: Trading Panel */}
                 <div className="w-[340px] flex-shrink-0">
                   <div className="sticky top-8 bg-[#1a1f2e] rounded-2xl p-3 space-y-2 border border-gray-800/50 shadow-xl relative">
-                    {/* Coming Soon Overlay */}
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center">
-                      <div className="text-center px-4">
-                        <h3 className="text-white text-2xl font-bold mb-2">Coming Soon</h3>
-                        <p className="text-gray-400 text-sm">Trading will be available shortly</p>
+                    {/* Wallet Connection Overlay */}
+                    {!authenticated && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center">
+                        <div className="text-center px-4">
+                          <h3 className="text-white text-xl font-bold mb-2">Connect to Trade</h3>
+                          <p className="text-gray-400 text-sm mb-4">Connect your wallet to start trading</p>
+                          <button
+                            onClick={() => privyLogin?.()}
+                            className="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+                          >
+                            Connect Wallet
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     {/* Market Title Header */}
                     <div className="flex items-center gap-2 pb-2 border-b border-gray-700/50">
                       {market.image ? (
@@ -785,22 +866,46 @@ export default function MarketPage({ params }: MarketPageProps) {
                     {/* Summary */}
                     <div className="space-y-1 pt-1.5 border-t border-gray-700/30">
                       <div className="flex justify-between items-center">
+                        <span className="text-gray-300 font-semibold text-xs">Subtotal</span>
+                        <span className="text-white font-bold text-base tabular-nums">${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 font-semibold text-xs">Platform Fee (0.50%)</span>
+                        <span className="text-gray-400 font-semibold text-xs tabular-nums">${platformFee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-gray-800/20">
                         <span className="text-gray-300 font-semibold text-xs">Total</span>
-                        <span className="text-white font-bold text-base tabular-nums">${total.toFixed(0)}</span>
+                        <span className="text-white font-bold text-base tabular-nums">${total.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-300 font-semibold text-xs">To Win</span>
-                        <span className="text-emerald-400 font-bold text-base tabular-nums">${potentialReturn.toFixed(0)}</span>
+                        <span className="text-emerald-400 font-bold text-base tabular-nums">${potentialReturn.toFixed(2)}</span>
                       </div>
                     </div>
 
                     {/* Trade Button */}
                     <button
-                      disabled={!shares || parseFloat(shares) <= 0}
+                      onClick={handleTrade}
+                      disabled={!shares || parseFloat(shares) <= 0 || isSubmitting || (authenticated && !tradingReady)}
                       className="w-full py-2.5 bg-gradient-to-r from-[#4A9DFF] to-[#3b82f6] hover:from-[#3d8ae6] hover:to-[#2563eb] disabled:from-[#2a3142] disabled:to-[#2a3142] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all text-xs shadow-lg"
                     >
-                      Trade
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Submitting...
+                        </span>
+                      ) : isInitializing ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Initializing...
+                        </span>
+                      ) : (
+                        'Trade'
+                      )}
                     </button>
+                    {tradingError && (
+                      <p className="text-xs text-rose-400 text-center">{tradingError}</p>
+                    )}
                   </div>
                 </div>
               </div>
