@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Send } from 'lucide-react';
 
 // Custom X (Twitter) icon
@@ -50,12 +49,8 @@ export function Footer() {
             })}
           </div>
 
-          {/* Right - Links & Copyright */}
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <Link href="#" className="hover:text-blue-500 transition-colors">Docs</Link>
-            <span className="text-gray-600">&bull;</span>
-            <Link href="#" className="hover:text-blue-500 transition-colors">Terms</Link>
-            <span className="text-gray-600">&bull;</span>
+          {/* Right - Copyright */}
+          <div className="text-xs text-gray-400">
             <span>&copy; 2026 Weather Markets</span>
           </div>
         </div>
