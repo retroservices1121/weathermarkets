@@ -35,15 +35,32 @@ function matchesFilter(event: PolymarketEvent, filter: WeatherFilter): boolean {
   }
 }
 
-function SearchParamsHandler({ setSearchQuery }: { setSearchQuery: (query: string) => void }) {
+function SearchParamsHandler({ setSearchQuery, setWeatherFilter }: { setSearchQuery: (query: string) => void; setWeatherFilter: (filter: WeatherFilter) => void }) {
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get('q');
+  const urlCategory = searchParams.get('category');
 
   useEffect(() => {
     if (urlQuery && urlQuery.trim()) {
       setSearchQuery(urlQuery);
     }
   }, [urlQuery, setSearchQuery]);
+
+  useEffect(() => {
+    if (urlCategory) {
+      const categoryMap: Record<string, WeatherFilter> = {
+        'Temperature': 'temperature',
+        'Storms': 'storms',
+        'Earthquakes': 'earthquakes',
+        'Climate': 'climate',
+        'All Weather': 'all',
+      };
+      const filter = categoryMap[urlCategory];
+      if (filter) {
+        setWeatherFilter(filter);
+      }
+    }
+  }, [urlCategory, setWeatherFilter]);
 
   return null;
 }
@@ -121,12 +138,30 @@ function HomePageContent() {
   return (
     <div className="min-h-screen">
       <Suspense fallback={null}>
-        <SearchParamsHandler setSearchQuery={setSearchQuery} />
+        <SearchParamsHandler setSearchQuery={setSearchQuery} setWeatherFilter={setWeatherFilter} />
       </Suspense>
 
       {/* Header Bar */}
       <div className="sticky top-16 z-40 bg-[#1a1d26]/80 backdrop-blur-sm border-b border-gray-800">
-        <div className="px-4 lg:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {/* Weather Category Filter Pills */}
+        <div className="px-4 lg:px-6 pt-3 pb-2 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          {WEATHER_FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setWeatherFilter(f.value)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
+                weatherFilter === f.value
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-[#0f1117] text-gray-400 border border-gray-700 hover:bg-[#1f2330] hover:text-white'
+              }`}
+            >
+              <span>{f.icon}</span>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-4 lg:px-6 pb-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,24 +203,6 @@ function HomePageContent() {
               {totalCount} weather market{totalCount !== 1 ? 's' : ''}
             </span>
           )}
-        </div>
-
-        {/* Weather Sub-Category Filter Pills */}
-        <div className="px-4 lg:px-6 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {WEATHER_FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setWeatherFilter(f.value)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
-                weatherFilter === f.value
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-[#0f1117] text-gray-400 border border-gray-700 hover:bg-[#1f2330] hover:text-white'
-              }`}
-            >
-              <span>{f.icon}</span>
-              {f.label}
-            </button>
-          ))}
         </div>
       </div>
 

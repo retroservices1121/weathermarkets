@@ -8,11 +8,12 @@ import { MarketCardSkeleton } from '@/components/cards/MarketCardSkeleton';
 import { apiClient } from '@/lib/api';
 import type { PolymarketEvent } from '@/types';
 
-type WeatherFilter = 'all' | 'temperature' | 'earthquakes' | 'climate';
+type WeatherFilter = 'all' | 'temperature' | 'storms' | 'earthquakes' | 'climate';
 
 const WEATHER_FILTERS: { value: WeatherFilter; label: string; icon: string }[] = [
   { value: 'all', label: 'All Weather', icon: '🌍' },
   { value: 'temperature', label: 'Temperature', icon: '🌡️' },
+  { value: 'storms', label: 'Storms', icon: '🌪️' },
   { value: 'earthquakes', label: 'Earthquakes', icon: '🌋' },
   { value: 'climate', label: 'Climate', icon: '🌎' },
 ];
@@ -23,6 +24,8 @@ function matchesFilter(event: PolymarketEvent, filter: WeatherFilter): boolean {
   switch (filter) {
     case 'temperature':
       return text.includes('temperature') || text.includes('°') || text.includes('highest temp') || text.includes('hottest') || text.includes('coldest');
+    case 'storms':
+      return text.includes('storm') || text.includes('hurricane') || text.includes('tornado') || text.includes('cyclone') || text.includes('typhoon');
     case 'earthquakes':
       return text.includes('earthquake') || text.includes('seismic') || text.includes('quake');
     case 'climate':

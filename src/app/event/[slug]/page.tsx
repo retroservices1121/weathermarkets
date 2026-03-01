@@ -16,6 +16,7 @@ import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { SportsMarketsSections } from '@/components/events/SportsMarketsSections';
 import { formatVolume, parseOutcomePrices, isSportsMatch } from '@/lib/utils';
 import { FEE_RATE } from '@/lib/constants';
+import { MARKET_CATEGORIES, type MarketCategory } from '@/types';
 
 interface EventPageProps {
   params: { slug: string };
@@ -141,9 +142,35 @@ export default function EventPage({ params }: EventPageProps) {
     });
   };
 
+  const CATEGORY_ICONS: Record<MarketCategory, string> = {
+    'All Weather': '🌍',
+    'Temperature': '🌡️',
+    'Storms': '🌪️',
+    'Earthquakes': '🌋',
+    'Climate': '🌎',
+  };
+
   return (
     <>
       <div className="min-h-screen bg-[#0a0b0f]">
+        {/* Weather Category Navigation */}
+        <div className="sticky top-16 z-40 bg-[#1a1d26]/80 backdrop-blur-sm border-b border-gray-800">
+          <div className="max-w-[1600px] mx-auto overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-2 px-6 lg:px-8 py-2.5">
+              {MARKET_CATEGORIES.map((category) => (
+                <Link
+                  key={category}
+                  href={category === 'All Weather' ? '/' : `/?category=${encodeURIComponent(category)}`}
+                  className="px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 bg-[#0f1117] text-gray-400 border border-gray-700 hover:bg-[#1f2330] hover:text-white"
+                >
+                  <span>{CATEGORY_ICONS[category]}</span>
+                  {category}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-[1600px] mx-auto px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-8">
