@@ -245,17 +245,54 @@ async function fetchMidPrice(tokenId: string): Promise<number | null> {
 
 export async function GET() {
   try {
-    const keywords = [
-      'temperature', 'weather', 'hurricane', 'snow', 'rain',
-      'storm', 'tornado', 'flood', 'heat', 'cold',
-      'wind', 'drought', 'blizzard', 'typhoon', 'cyclone',
-      'earthquake', 'wildfire', 'heatwave', 'freeze', 'ice',
-      'climate', 'NOAA', 'NWS', 'forecast', 'celsius',
-      'fahrenheit', 'precipitation', 'rainfall', 'snowfall',
+    // Search keywords — very specific weather terms only
+    const searchKeywords = [
+      'temperature forecast', 'weather forecast', 'hurricane season',
+      'snowfall', 'rainfall', 'tornado', 'blizzard', 'typhoon',
+      'cyclone', 'heatwave', 'precipitation', 'tropical storm',
+      'heat wave', 'weather event',
     ];
 
+    // Validation: market must contain at least one strong weather indicator
+    const WEATHER_VALIDATION_TERMS = [
+      'temperature', 'fahrenheit', 'celsius',
+      'hurricane', 'tropical storm', 'category 1', 'category 2',
+      'category 3', 'category 4', 'category 5', 'landfall',
+      'snowfall', 'rainfall', 'precipitation', 'inches of rain',
+      'inches of snow', 'tornado', 'blizzard', 'typhoon', 'cyclone',
+      'heatwave', 'heat wave', 'polar vortex', 'nor\'easter',
+      'ice storm', 'wind chill', 'heat index', 'dew point',
+      'barometric', 'weather forecast', 'weather event',
+      'NOAA', 'NWS', 'national weather service',
+      'monsoon', 'el nino', 'la nina', 'drought',
+    ];
+
+    // Terms that indicate the market is NOT about weather
+    const EXCLUDE_TERMS = [
+      'political', 'election', 'president', 'congress', 'senate',
+      'bitcoin', 'crypto', 'stock', 'market cap', 'price target',
+      'sports', 'game', 'match', 'championship', 'playoffs',
+      'album', 'movie', 'film', 'tv show', 'series',
+      'twitter', 'tweet', 'follower', 'subscriber',
+      'war', 'military', 'invasion', 'troops',
+      'brainstorm', 'firestorm', 'shitstorm',
+      'viral', 'meme',
+    ];
+
+    function isWeatherMarket(question: string, description: string): boolean {
+      const text = `${question} ${description}`.toLowerCase();
+
+      // Reject if it contains exclusion terms
+      if (EXCLUDE_TERMS.some(term => text.includes(term))) {
+        return false;
+      }
+
+      // Must contain at least one strong weather validation term
+      return WEATHER_VALIDATION_TERMS.some(term => text.includes(term.toLowerCase()));
+    }
+
     // Fetch markets for each keyword in parallel
-    const fetchPromises = keywords.map(async (keyword) => {
+    const fetchPromises = searchKeywords.map(async (keyword) => {
       try {
         const url = `https://gamma-api.polymarket.com/markets?_q=${encodeURIComponent(keyword)}&active=true&closed=false&limit=20`;
         const response = await fetch(url, {
@@ -273,13 +310,13 @@ export async function GET() {
 
     const results = await Promise.all(fetchPromises);
 
-    // Flatten and deduplicate by market ID
+    // Flatten, deduplicate by market ID, and validate as weather markets
     const seenIds = new Set<string>();
     const uniqueMarkets: GammaMarket[] = [];
 
     for (const marketList of results) {
       for (const market of marketList) {
-        if (!seenIds.has(market.id)) {
+        if (!seenIds.has(market.id) && isWeatherMarket(market.question, market.description)) {
           seenIds.add(market.id);
           uniqueMarkets.push(market);
         }
@@ -306,10 +343,10 @@ export async function GET() {
           currentPrice = await fetchMidPrice(yesTokenId);
         }
 
-        // Extract location from the question text, fallback to description, then default to US center
+        // Extract location from the question text, fallback to description
         const location = extractLocation(market.question)
           || extractLocation(market.description)
-          || { city: 'US', lat: 39.8 + (Math.random() - 0.5) * 10, lon: -98.5 + (Math.random() - 0.5) * 20 };
+          || null;
 
         return {
           id: market.id,
