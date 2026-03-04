@@ -167,15 +167,8 @@ export function MarketScanner({ markets, loading, onMarketSelect, edgeSignals = 
   );
 
   return (
-    <div className="w-full min-h-screen bg-[#0a0e1a]">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-white text-2xl font-bold mb-1">Weather Market Scanner</h1>
-          <p className="text-gray-400 text-sm">
-            Browse and filter all active weather prediction markets
-          </p>
-        </div>
+    <div className="w-full bg-[#0a0e1a]">
+      <div className="max-w-7xl mx-auto px-4 py-4">
 
         {/* Search + Filter Toggle */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">

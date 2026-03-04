@@ -84,12 +84,6 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
           {/* Right side actions */}
           <div className="hidden md:flex items-center space-x-3">
             <Link
-              href="/scanner"
-              className="px-3 py-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
-            >
-              Markets
-            </Link>
-            <Link
               href="/radar"
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 pathname === '/radar'
@@ -154,19 +148,12 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
               </form>
               <div className="flex gap-2 px-2">
                 <Link
-                  href="/scanner"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex-1 text-center px-3 py-2.5 text-gray-400 hover:text-white bg-[#1a1d26] border border-gray-800 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Markets
-                </Link>
-                <Link
                   href="/radar"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 rounded-lg text-sm font-semibold transition-colors"
                 >
                   <Radio className="w-4 h-4" />
-                  Radar
+                  Radar & Markets
                 </Link>
               </div>
               <div className="flex flex-col space-y-2 pt-2 px-2 items-center">

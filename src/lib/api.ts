@@ -190,23 +190,23 @@ class ApiClient {
   }
 
   async getEvent(idOrSlug: string): Promise<PolymarketEvent | null> {
-    try {
-      // Try direct by id
-      const { data } = await this.gamma.get(`/events/${idOrSlug}`);
-      if (data) return normalizeEvent(data);
-      return null;
-    } catch {
+    // If it looks like a numeric ID, try direct lookup first
+    if (/^\d+$/.test(idOrSlug)) {
       try {
-        // Fall back to slug query
-        const { data } = await this.gamma.get('/events', {
-          params: { slug: idOrSlug },
-        });
-        if (Array.isArray(data) && data.length > 0) {
-          return normalizeEvent(data[0]);
-        }
+        const { data } = await this.gamma.get(`/events/${idOrSlug}`);
+        if (data) return normalizeEvent(data);
       } catch {}
-      return null;
     }
+    // Otherwise query by slug
+    try {
+      const { data } = await this.gamma.get('/events', {
+        params: { slug: idOrSlug },
+      });
+      if (Array.isArray(data) && data.length > 0) {
+        return normalizeEvent(data[0]);
+      }
+    } catch {}
+    return null;
   }
 
   async getActiveEvents(limit = 50): Promise<PolymarketEvent[]> {
@@ -374,13 +374,20 @@ class ApiClient {
     try {
       const event = await this.getEvent(eventId);
       if (!event?.markets) return [];
+      return this.getTradesForMarkets(event.markets, limit);
+    } catch {
+      return [];
+    }
+  }
 
-      const tradePromises = event.markets
-        .slice(0, 10)
+  async getTradesForMarkets(markets: PolymarketMarket[], limit = 50): Promise<Trade[]> {
+    try {
+      const tradePromises = markets
+        .slice(0, 5)
         .map((m) => {
           const tokenIds = parseClobTokenIds(m.clobTokenIds);
           if (!tokenIds[0]) return Promise.resolve([]);
-          return this.getRecentTrades(tokenIds[0], 20).catch(() => []);
+          return this.getRecentTrades(tokenIds[0], 10).catch(() => []);
         });
 
       const arrays = await Promise.all(tradePromises);
@@ -397,8 +404,17 @@ class ApiClient {
     try {
       const event = await this.getEvent(eventId);
       if (!event?.markets?.length) return null;
+      return this.getOrderBookForMarkets(event.markets);
+    } catch {
+      return null;
+    }
+  }
 
-      const leading = event.markets.reduce((prev, cur) => {
+  async getOrderBookForMarkets(markets: PolymarketMarket[]): Promise<OrderBook | null> {
+    try {
+      if (!markets.length) return null;
+
+      const leading = markets.reduce((prev, cur) => {
         const pv = typeof prev.volume === 'string' ? parseFloat(prev.volume) : (prev.volume || 0);
         const cv = typeof cur.volume === 'string' ? parseFloat(cur.volume) : (cur.volume || 0);
         return cv > pv ? cur : prev;

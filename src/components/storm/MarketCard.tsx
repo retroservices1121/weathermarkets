@@ -98,7 +98,7 @@ export function MarketCard({
     <>
       {/* Backdrop for mobile */}
       <div
-        className={`fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/50 z-[1100] md:hidden transition-opacity duration-300 ${
           isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={handleClose}
@@ -107,7 +107,7 @@ export function MarketCard({
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`fixed z-50 bg-[#0a0e1a] border-l border-gray-800/50 overflow-y-auto transition-transform duration-300 ease-out
+        className={`fixed z-[1200] bg-[#0a0e1a] border-l border-gray-800/50 overflow-y-auto transition-transform duration-300 ease-out
           md:right-0 md:top-16 md:bottom-0 md:w-[420px]
           bottom-0 left-0 right-0 md:left-auto max-h-[85vh] md:max-h-none rounded-t-2xl md:rounded-none
           ${isVisible ? 'translate-x-0 translate-y-0' : 'md:translate-x-full translate-y-full md:translate-y-0'}

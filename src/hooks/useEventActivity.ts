@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-import type { Trade, OrderBook } from '@/types';
+import type { PolymarketEvent, Trade, OrderBook } from '@/types';
 
-export function useEventActivity(eventSlug: string | null) {
+export function useEventActivity(event: PolymarketEvent | null) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!eventSlug) {
+    if (!event?.markets?.length) {
       setTrades([]);
       setOrderBook(null);
       setLoading(false);
@@ -18,18 +18,16 @@ export function useEventActivity(eventSlug: string | null) {
 
     let isMounted = true;
     let intervalId: NodeJS.Timeout | null = null;
+    const markets = event.markets;
 
     async function fetchActivityData() {
-      if (!eventSlug) return;
-
       try {
-        setLoading(true);
+        if (!isMounted) return;
         setError(null);
 
-        // Fetch trades and order book in parallel
         const [tradesData, orderBookData] = await Promise.all([
-          apiClient.getEventActivity(eventSlug, 50),
-          apiClient.getEventOrderBook(eventSlug),
+          apiClient.getTradesForMarkets(markets, 50),
+          apiClient.getOrderBookForMarkets(markets),
         ]);
 
         if (isMounted) {
@@ -48,17 +46,16 @@ export function useEventActivity(eventSlug: string | null) {
       }
     }
 
-    // Initial fetch
     fetchActivityData();
 
-    // Refresh every 10 seconds for real-time updates
-    intervalId = setInterval(fetchActivityData, 10000);
+    // Refresh every 30 seconds
+    intervalId = setInterval(fetchActivityData, 30000);
 
     return () => {
       isMounted = false;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [eventSlug]);
+  }, [event?.id]);
 
   return { trades, orderBook, loading, error };
 }

@@ -25,7 +25,7 @@ interface EventPageProps {
 export default function EventPage({ params }: EventPageProps) {
   const { slug } = params;
   const { event, loading, error } = useEventDetails(slug);
-  const { trades, orderBook, loading: activityLoading } = useEventActivity(slug);
+  const { trades, orderBook, loading: activityLoading } = useEventActivity(event);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [timeInterval, setTimeInterval] = useState<'1h' | '1d' | '1w' | 'max'>('1d');
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');

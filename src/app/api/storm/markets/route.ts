@@ -52,6 +52,56 @@ const CITY_GEOCODING: Record<string, { lat: number; lon: number }> = {
   'Pittsburgh': { lat: 40.4406, lon: -79.9959 },
   'Detroit': { lat: 42.3314, lon: -83.0458 },
   'Cincinnati': { lat: 39.1031, lon: -84.512 },
+  'Honolulu': { lat: 21.3069, lon: -157.8583 },
+  'Anchorage': { lat: 61.2181, lon: -149.9003 },
+  'Salt Lake City': { lat: 40.7608, lon: -111.891 },
+  'Richmond': { lat: 37.5407, lon: -77.436 },
+  'Boise': { lat: 43.615, lon: -116.2023 },
+  'Des Moines': { lat: 41.5868, lon: -93.625 },
+  'Little Rock': { lat: 34.7465, lon: -92.2896 },
+  'Birmingham': { lat: 33.5207, lon: -86.8025 },
+  'Buffalo': { lat: 42.8864, lon: -78.8784 },
+  'Hartford': { lat: 41.764, lon: -72.6823 },
+  'Providence': { lat: 41.824, lon: -71.4128 },
+  'Norfolk': { lat: 36.8508, lon: -76.2859 },
+  'Corpus Christi': { lat: 27.8006, lon: -97.3964 },
+  'Lexington': { lat: 38.0406, lon: -84.5037 },
+  'Spokane': { lat: 47.6588, lon: -117.426 },
+  'Tulsa': { lat: 36.154, lon: -95.9928 },
+  'Knoxville': { lat: 35.9606, lon: -83.9207 },
+  'Savannah': { lat: 32.0809, lon: -81.0912 },
+  'Wichita': { lat: 37.6872, lon: -97.3301 },
+  'Dayton': { lat: 39.7589, lon: -84.1916 },
+  'Charleston': { lat: 32.7765, lon: -79.9311 },
+  // International
+  'London': { lat: 51.5074, lon: -0.1278 },
+  'Tokyo': { lat: 35.6762, lon: 139.6503 },
+  'Paris': { lat: 48.8566, lon: 2.3522 },
+  'Sydney': { lat: -33.8688, lon: 151.2093 },
+  'Toronto': { lat: 43.6532, lon: -79.3832 },
+  'Mexico City': { lat: 19.4326, lon: -99.1332 },
+  'Mumbai': { lat: 19.076, lon: 72.8777 },
+  'Beijing': { lat: 39.9042, lon: 116.4074 },
+  'Berlin': { lat: 52.52, lon: 13.405 },
+  'Dubai': { lat: 25.2048, lon: 55.2708 },
+  'Singapore': { lat: 1.3521, lon: 103.8198 },
+  'Manila': { lat: 14.5995, lon: 120.9842 },
+  'Caribbean': { lat: 18.7357, lon: -70.1627 },
+  'Gulf of Mexico': { lat: 25.0, lon: -90.0 },
+  'Atlantic': { lat: 30.0, lon: -50.0 },
+  'Pacific': { lat: 20.0, lon: -140.0 },
+  'Arctic': { lat: 71.0, lon: -8.0 },
+  'US': { lat: 39.8, lon: -98.5 },
+  'USA': { lat: 39.8, lon: -98.5 },
+  'United States': { lat: 39.8, lon: -98.5 },
+  'Midwest': { lat: 41.5, lon: -89.0 },
+  'Northeast': { lat: 42.0, lon: -73.0 },
+  'Southeast': { lat: 33.0, lon: -84.0 },
+  'Southwest': { lat: 34.0, lon: -111.0 },
+  'Northwest': { lat: 47.0, lon: -120.0 },
+  'East Coast': { lat: 37.0, lon: -76.0 },
+  'West Coast': { lat: 37.0, lon: -122.0 },
+  'Gulf Coast': { lat: 29.0, lon: -90.0 },
 };
 
 // US state names for location extraction
@@ -198,7 +248,10 @@ export async function GET() {
     const keywords = [
       'temperature', 'weather', 'hurricane', 'snow', 'rain',
       'storm', 'tornado', 'flood', 'heat', 'cold',
-      'wind', 'drought', 'blizzard',
+      'wind', 'drought', 'blizzard', 'typhoon', 'cyclone',
+      'earthquake', 'wildfire', 'heatwave', 'freeze', 'ice',
+      'climate', 'NOAA', 'NWS', 'forecast', 'celsius',
+      'fahrenheit', 'precipitation', 'rainfall', 'snowfall',
     ];
 
     // Fetch markets for each keyword in parallel
@@ -253,8 +306,10 @@ export async function GET() {
           currentPrice = await fetchMidPrice(yesTokenId);
         }
 
-        // Extract location from the question text
-        const location = extractLocation(market.question) || extractLocation(market.description);
+        // Extract location from the question text, fallback to description, then default to US center
+        const location = extractLocation(market.question)
+          || extractLocation(market.description)
+          || { city: 'US', lat: 39.8 + (Math.random() - 0.5) * 10, lon: -98.5 + (Math.random() - 0.5) * 20 };
 
         return {
           id: market.id,
