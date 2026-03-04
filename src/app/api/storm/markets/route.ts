@@ -279,7 +279,7 @@ export async function GET() {
       'viral', 'meme',
     ];
 
-    function isWeatherMarket(question: string, description: string): boolean {
+    const isWeatherMarket = (question: string, description: string): boolean => {
       const text = `${question} ${description}`.toLowerCase();
 
       // Reject if it contains exclusion terms
@@ -289,7 +289,7 @@ export async function GET() {
 
       // Must contain at least one strong weather validation term
       return WEATHER_VALIDATION_TERMS.some(term => text.includes(term.toLowerCase()));
-    }
+    };
 
     // Fetch markets for each keyword in parallel
     const fetchPromises = searchKeywords.map(async (keyword) => {
