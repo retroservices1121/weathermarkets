@@ -245,82 +245,126 @@ async function fetchMidPrice(tokenId: string): Promise<number | null> {
 
 export async function GET() {
   try {
-    // Search keywords — broad enough to find markets, validation filter handles false positives
-    const searchKeywords = [
-      'temperature', 'weather', 'hurricane', 'snowfall', 'rainfall',
-      'tornado', 'blizzard', 'typhoon', 'cyclone', 'heatwave',
-      'precipitation', 'tropical storm', 'drought', 'flood',
-      'snow', 'rain', 'storm weather', 'heat wave',
+    // Weather validation: market question must match one of these patterns
+    const WEATHER_PATTERNS = [
+      /hottest\s+year/i,
+      /warmest\s+year/i,
+      /arctic\s+sea\s+ice/i,
+      /sea\s+ice\s+extent/i,
+      /hurricane/i,
+      /tropical\s+storm/i,
+      /named\s+storm/i,
+      /typhoon/i,
+      /cyclone/i,
+      /tornado/i,
+      /blizzard/i,
+      /landfall/i,
+      /temperature\b.*\b(record|above|below|exceed|high|average|anomal)/i,
+      /\b(snow|rain)fall\b/i,
+      /precipitation/i,
+      /heatwave|heat\s*wave/i,
+      /polar\s+vortex/i,
+      /nor.easter/i,
+      /ice\s+storm/i,
+      /drought/i,
+      /flood(ing|s)?\b(?!.*\b(suez|canal|ship|container))/i,
+      /wildfire/i,
+      /severe\s+weather/i,
+      /el\s+ni[nñ]o/i,
+      /la\s+ni[nñ]a/i,
+      /monsoon/i,
+      /weather\s+(event|forecast|warning|alert|emergency|disaster)/i,
+      /\bNOAA\b/i,
+      /\bNWS\b/i,
+      /national\s+weather\s+service/i,
+      /fahrenheit|celsius/i,
+      /wind\s+(speed|chill|gust)/i,
+      /heat\s+index/i,
+      /dew\s+point/i,
+      /atmospheric\s+river/i,
+      /climate\s+(change|crisis|record)/i,
     ];
 
-    // Validation: market must contain at least one strong weather indicator
-    const WEATHER_VALIDATION_TERMS = [
-      'temperature', 'fahrenheit', 'celsius',
-      'hurricane', 'tropical storm', 'category 1', 'category 2',
-      'category 3', 'category 4', 'category 5', 'landfall',
-      'snowfall', 'rainfall', 'precipitation', 'inches of rain',
-      'inches of snow', 'tornado', 'blizzard', 'typhoon', 'cyclone',
-      'heatwave', 'heat wave', 'polar vortex', 'nor\'easter',
-      'ice storm', 'wind chill', 'heat index', 'dew point',
-      'barometric', 'weather forecast', 'weather event',
-      'NOAA', 'NWS', 'national weather service',
-      'monsoon', 'el nino', 'la nina', 'drought',
-      'flood', 'flooding', 'wildfire', 'severe weather',
-    ];
-
-    // Terms that indicate the market is NOT about weather
-    const EXCLUDE_TERMS = [
-      'political', 'election', 'president', 'congress', 'senate',
-      'bitcoin', 'crypto', 'stock', 'market cap', 'price target',
-      'sports', 'game', 'match', 'championship', 'playoffs',
-      'album', 'movie', 'film', 'tv show', 'series',
-      'twitter', 'tweet', 'follower', 'subscriber',
-      'war', 'military', 'invasion', 'troops',
-      'brainstorm', 'firestorm', 'shitstorm',
-      'viral', 'meme',
+    // Patterns that indicate false positives (not actually weather)
+    const EXCLUDE_PATTERNS = [
+      /\b(nhl|nba|nfl|mlb|fifa|bundesliga|premier\s+league)\b/i,
+      /\bgoal\s+scorer\b/i,
+      /\bstanley\s+cup\b/i,
+      /\bworld\s+cup\b/i,
+      /\bplayoffs?\b/i,
+      /\bchampionship\b/i,
+      /\bpardon\b.*\bsnowden\b/i,
+      /\bwinds?\s+of\s+winter\b/i,
+      /\btrain\s+dreams\b/i,
+      /\bsuez\s+canal\b/i,
+      /\bblockade\b.*\btaiwan\b/i,
+      /\btrump\b.*\bputin\b/i,
+      /\bzelenskyy?\b.*\bputin\b/i,
+      /\bprediction\s+market\b/i,
+      /\brobinhood\b/i,
+      /\btesla\b/i,
+      /\brobovan\b/i,
+      /\bsafety\s+bill\b/i,
+      /\bbank\s+bailout\b/i,
+      /\bfrench\s+pm\b/i,
+      /\bspeaker\b/i,
+      /\bjoin\s+(the\s+)?abraham\b/i,
+      /\bstraight?\s+of\s+hormuz\b/i,
+      /\bNATO\b/i,
+      /\bsovereign/i,
     ];
 
     const isWeatherMarket = (question: string, description: string): boolean => {
-      const text = `${question} ${description}`.toLowerCase();
+      const text = `${question} ${description}`;
 
-      // Reject if it contains exclusion terms
-      if (EXCLUDE_TERMS.some(term => text.includes(term))) {
+      // Reject if it matches any exclusion pattern
+      if (EXCLUDE_PATTERNS.some(pattern => pattern.test(text))) {
         return false;
       }
 
-      // Must contain at least one strong weather validation term
-      return WEATHER_VALIDATION_TERMS.some(term => text.includes(term.toLowerCase()));
+      // Must match at least one weather pattern
+      return WEATHER_PATTERNS.some(pattern => pattern.test(text));
     };
 
-    // Fetch markets for each keyword in parallel
-    const fetchPromises = searchKeywords.map(async (keyword) => {
+    // The Gamma API _q search param is unreliable - paginate through all active markets
+    const allMarkets: GammaMarket[] = [];
+    const batchSize = 100;
+    const maxPages = 50; // up to 5000 markets
+
+    const fetchPage = async (offset: number): Promise<GammaMarket[]> => {
       try {
-        const url = `https://gamma-api.polymarket.com/markets?_q=${encodeURIComponent(keyword)}&active=true&closed=false&limit=20`;
+        const url = `https://gamma-api.polymarket.com/markets?limit=${batchSize}&active=true&closed=false&offset=${offset}`;
         const response = await fetch(url, {
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(15000),
         });
-
         if (!response.ok) return [];
-
-        const markets: GammaMarket[] = await response.json();
-        return markets;
+        return await response.json();
       } catch {
         return [];
       }
-    });
+    };
 
-    const results = await Promise.all(fetchPromises);
+    // Fetch pages in parallel batches of 5
+    for (let pageStart = 0; pageStart < maxPages; pageStart += 5) {
+      const pages = await Promise.all(
+        Array.from({ length: 5 }, (_, i) => fetchPage((pageStart + i) * batchSize))
+      );
+      let anyEmpty = false;
+      for (const page of pages) {
+        if (page.length === 0) { anyEmpty = true; break; }
+        allMarkets.push(...page);
+      }
+      if (anyEmpty) break;
+    }
 
-    // Flatten, deduplicate by market ID, and validate as weather markets
+    // Filter to weather markets and deduplicate
     const seenIds = new Set<string>();
     const uniqueMarkets: GammaMarket[] = [];
 
-    for (const marketList of results) {
-      for (const market of marketList) {
-        if (!seenIds.has(market.id) && isWeatherMarket(market.question, market.description)) {
-          seenIds.add(market.id);
-          uniqueMarkets.push(market);
-        }
+    for (const market of allMarkets) {
+      if (!seenIds.has(market.id) && isWeatherMarket(market.question, market.description || '')) {
+        seenIds.add(market.id);
+        uniqueMarkets.push(market);
       }
     }
 
