@@ -245,12 +245,12 @@ async function fetchMidPrice(tokenId: string): Promise<number | null> {
 
 export async function GET() {
   try {
-    // Search keywords — very specific weather terms only
+    // Search keywords — broad enough to find markets, validation filter handles false positives
     const searchKeywords = [
-      'temperature forecast', 'weather forecast', 'hurricane season',
-      'snowfall', 'rainfall', 'tornado', 'blizzard', 'typhoon',
-      'cyclone', 'heatwave', 'precipitation', 'tropical storm',
-      'heat wave', 'weather event',
+      'temperature', 'weather', 'hurricane', 'snowfall', 'rainfall',
+      'tornado', 'blizzard', 'typhoon', 'cyclone', 'heatwave',
+      'precipitation', 'tropical storm', 'drought', 'flood',
+      'snow', 'rain', 'storm weather', 'heat wave',
     ];
 
     // Validation: market must contain at least one strong weather indicator
@@ -265,6 +265,7 @@ export async function GET() {
       'barometric', 'weather forecast', 'weather event',
       'NOAA', 'NWS', 'national weather service',
       'monsoon', 'el nino', 'la nina', 'drought',
+      'flood', 'flooding', 'wildfire', 'severe weather',
     ];
 
     // Terms that indicate the market is NOT about weather
@@ -343,10 +344,10 @@ export async function GET() {
           currentPrice = await fetchMidPrice(yesTokenId);
         }
 
-        // Extract location from the question text, fallback to description
+        // Extract location from the question text, fallback to description, then default to US center
         const location = extractLocation(market.question)
           || extractLocation(market.description)
-          || null;
+          || { city: 'US', lat: 39.8 + (Math.random() - 0.5) * 10, lon: -98.5 + (Math.random() - 0.5) * 20 };
 
         return {
           id: market.id,
