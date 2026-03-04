@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Menu, X, Search, LogOut } from 'lucide-react';
+import { Menu, X, Search, LogOut, Radio } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useRouter, usePathname } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
@@ -83,6 +83,23 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
 
           {/* Right side actions */}
           <div className="hidden md:flex items-center space-x-3">
+            <Link
+              href="/scanner"
+              className="px-3 py-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+            >
+              Markets
+            </Link>
+            <Link
+              href="/radar"
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                pathname === '/radar'
+                  ? 'bg-[#00d4ff]/15 text-[#00d4ff] border border-[#00d4ff]/30 shadow-[0_0_12px_rgba(0,212,255,0.15)]'
+                  : 'bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 hover:bg-[#00d4ff]/20'
+              }`}
+            >
+              <Radio className="w-4 h-4" />
+              Radar
+            </Link>
             {privyReady && authenticated && walletAddress ? (
               <div className="flex items-center gap-2">
                 <div className="px-4 py-2.5 bg-[#1a1d26] border border-gray-700 rounded-lg">
@@ -135,6 +152,23 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
                   />
                 </div>
               </form>
+              <div className="flex gap-2 px-2">
+                <Link
+                  href="/scanner"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex-1 text-center px-3 py-2.5 text-gray-400 hover:text-white bg-[#1a1d26] border border-gray-800 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Markets
+                </Link>
+                <Link
+                  href="/radar"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 rounded-lg text-sm font-semibold transition-colors"
+                >
+                  <Radio className="w-4 h-4" />
+                  Radar
+                </Link>
+              </div>
               <div className="flex flex-col space-y-2 pt-2 px-2 items-center">
                 {privyReady && authenticated && walletAddress ? (
                   <div className="flex items-center gap-2 w-full">
