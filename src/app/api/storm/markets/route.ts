@@ -86,6 +86,14 @@ const CITY_GEOCODING: Record<string, { lat: number; lon: number }> = {
   'Dubai': { lat: 25.2048, lon: 55.2708 },
   'Singapore': { lat: 1.3521, lon: 103.8198 },
   'Manila': { lat: 14.5995, lon: 120.9842 },
+  'Seoul': { lat: 37.5665, lon: 126.978 },
+  'Ankara': { lat: 39.9334, lon: 32.8597 },
+  'Wellington': { lat: -41.2866, lon: 174.7756 },
+  'Lucknow': { lat: 26.8467, lon: 80.9462 },
+  'Munich': { lat: 48.1351, lon: 11.582 },
+  'Sao Paulo': { lat: -23.5505, lon: -46.6333 },
+  'Buenos Aires': { lat: -34.6037, lon: -58.3816 },
+  'NYC': { lat: 40.7128, lon: -74.006 },
   'Caribbean': { lat: 18.7357, lon: -70.1627 },
   'Gulf of Mexico': { lat: 25.0, lon: -90.0 },
   'Atlantic': { lat: 30.0, lon: -50.0 },
@@ -184,6 +192,10 @@ interface GammaMarket {
   conditionId: string;
   active: boolean;
   closed: boolean;
+  outcomePrices: string[];
+  bestBid: number;
+  bestAsk: number;
+  lastTradePrice: number;
 }
 
 interface OrderBookResponse {
@@ -245,171 +257,103 @@ async function fetchMidPrice(tokenId: string): Promise<number | null> {
 
 export async function GET() {
   try {
-    // Weather validation: market question must match one of these patterns
-    const WEATHER_PATTERNS = [
-      /hottest\s+year/i,
-      /warmest\s+year/i,
-      /arctic\s+sea\s+ice/i,
-      /sea\s+ice\s+extent/i,
-      /hurricane/i,
-      /tropical\s+storm/i,
-      /named\s+storm/i,
-      /typhoon/i,
-      /cyclone/i,
-      /tornado/i,
-      /blizzard/i,
-      /landfall/i,
-      /temperature\b.*\b(record|above|below|exceed|high|average|anomal)/i,
-      /\b(snow|rain)fall\b/i,
-      /precipitation/i,
-      /heatwave|heat\s*wave/i,
-      /polar\s+vortex/i,
-      /nor.easter/i,
-      /ice\s+storm/i,
-      /drought/i,
-      /flood(ing|s)?\b(?!.*\b(suez|canal|ship|container))/i,
-      /wildfire/i,
-      /severe\s+weather/i,
-      /el\s+ni[nñ]o/i,
-      /la\s+ni[nñ]a/i,
-      /monsoon/i,
-      /weather\s+(event|forecast|warning|alert|emergency|disaster)/i,
-      /\bNOAA\b/i,
-      /\bNWS\b/i,
-      /national\s+weather\s+service/i,
-      /fahrenheit|celsius/i,
-      /wind\s+(speed|chill|gust)/i,
-      /heat\s+index/i,
-      /dew\s+point/i,
-      /atmospheric\s+river/i,
-      /climate\s+(change|crisis|record)/i,
+    // Use Polymarket's tag_slug to fetch weather events directly
+    // These match the climate-science subcategories on polymarket.com
+    const TAG_SLUGS = [
+      'weather',        // 74 events — the main weather section
+      'temperature',    // daily temperature markets (subset of weather)
+      'earthquakes',    // earthquake markets
+      'hurricanes',     // hurricane markets
+      'global-temp',    // global temperature records
+      'natural-disasters', // natural disaster markets
     ];
 
-    // Patterns that indicate false positives (not actually weather)
-    const EXCLUDE_PATTERNS = [
-      /\b(nhl|nba|nfl|mlb|fifa|bundesliga|premier\s+league)\b/i,
-      /\bgoal\s+scorer\b/i,
-      /\bstanley\s+cup\b/i,
-      /\bworld\s+cup\b/i,
-      /\bplayoffs?\b/i,
-      /\bchampionship\b/i,
-      /\bpardon\b.*\bsnowden\b/i,
-      /\bwinds?\s+of\s+winter\b/i,
-      /\btrain\s+dreams\b/i,
-      /\bsuez\s+canal\b/i,
-      /\bblockade\b.*\btaiwan\b/i,
-      /\btrump\b.*\bputin\b/i,
-      /\bzelenskyy?\b.*\bputin\b/i,
-      /\bprediction\s+market\b/i,
-      /\brobinhood\b/i,
-      /\btesla\b/i,
-      /\brobovan\b/i,
-      /\bsafety\s+bill\b/i,
-      /\bbank\s+bailout\b/i,
-      /\bfrench\s+pm\b/i,
-      /\bspeaker\b/i,
-      /\bjoin\s+(the\s+)?abraham\b/i,
-      /\bstraight?\s+of\s+hormuz\b/i,
-      /\bNATO\b/i,
-      /\bsovereign/i,
-    ];
-
-    const isWeatherMarket = (question: string, description: string): boolean => {
-      const text = `${question} ${description}`;
-
-      // Reject if it matches any exclusion pattern
-      if (EXCLUDE_PATTERNS.some(pattern => pattern.test(text))) {
-        return false;
-      }
-
-      // Must match at least one weather pattern
-      return WEATHER_PATTERNS.some(pattern => pattern.test(text));
-    };
-
-    // The Gamma API _q search param is unreliable - paginate through all active markets
-    const allMarkets: GammaMarket[] = [];
-    const batchSize = 100;
-    const maxPages = 50; // up to 5000 markets
-
-    const fetchPage = async (offset: number): Promise<GammaMarket[]> => {
-      try {
-        const url = `https://gamma-api.polymarket.com/markets?limit=${batchSize}&active=true&closed=false&offset=${offset}`;
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(15000),
-        });
-        if (!response.ok) return [];
-        return await response.json();
-      } catch {
-        return [];
-      }
-    };
-
-    // Fetch pages in parallel batches of 5
-    for (let pageStart = 0; pageStart < maxPages; pageStart += 5) {
-      const pages = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => fetchPage((pageStart + i) * batchSize))
-      );
-      let anyEmpty = false;
-      for (const page of pages) {
-        if (page.length === 0) { anyEmpty = true; break; }
-        allMarkets.push(...page);
-      }
-      if (anyEmpty) break;
+    // Fetch all tag slugs in parallel — events API includes nested markets
+    interface GammaEvent {
+      id: string;
+      title: string;
+      markets: GammaMarket[];
     }
 
-    // Filter to weather markets and deduplicate
+    const tagResults = await Promise.all(
+      TAG_SLUGS.map(async (slug) => {
+        try {
+          const url = `https://gamma-api.polymarket.com/events?tag_slug=${slug}&active=true&closed=false&limit=100`;
+          const response = await fetch(url, {
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!response.ok) return [];
+          const events: GammaEvent[] = await response.json();
+          // Flatten: extract all markets from all events
+          return events.flatMap(event => (event.markets || []).map(m => ({
+            ...m,
+            // Ensure question and description exist
+            question: m.question || event.title,
+            description: m.description || '',
+          })));
+        } catch {
+          return [];
+        }
+      })
+    );
+
+    // Deduplicate markets across all tag results
     const seenIds = new Set<string>();
     const uniqueMarkets: GammaMarket[] = [];
 
-    for (const market of allMarkets) {
-      if (!seenIds.has(market.id) && isWeatherMarket(market.question, market.description || '')) {
-        seenIds.add(market.id);
-        uniqueMarkets.push(market);
+    for (const marketList of tagResults) {
+      for (const market of marketList) {
+        if (!seenIds.has(market.id) && market.active && !market.closed) {
+          seenIds.add(market.id);
+          uniqueMarkets.push(market);
+        }
       }
     }
 
-    // Parse token IDs and fetch prices, extract locations
-    const enrichedMarkets = await Promise.all(
-      uniqueMarkets.map(async (market) => {
-        // Parse clobTokenIds - it's a JSON string array like '["token1","token2"]'
-        let tokenIds: string[] = [];
-        try {
-          tokenIds = JSON.parse(market.clobTokenIds || '[]');
-        } catch {
-          tokenIds = [];
-        }
+    // Enrich markets with location and price data (prices come from the API already)
+    const enrichedMarkets = uniqueMarkets.map((market) => {
+      // Parse clobTokenIds
+      let tokenIds: string[] = [];
+      try {
+        tokenIds = JSON.parse(market.clobTokenIds || '[]');
+      } catch {
+        tokenIds = [];
+      }
 
-        const yesTokenId = tokenIds[0] || null;
-        const noTokenId = tokenIds[1] || null;
+      const yesTokenId = tokenIds[0] || null;
+      const noTokenId = tokenIds[1] || null;
 
-        // Fetch mid-price for the YES token
-        let currentPrice: number | null = null;
-        if (yesTokenId) {
-          currentPrice = await fetchMidPrice(yesTokenId);
-        }
+      // Use price data already included in the API response
+      let currentPrice: number | null = null;
+      if (market.outcomePrices && market.outcomePrices.length > 0) {
+        currentPrice = parseFloat(market.outcomePrices[0]);
+      } else if (market.bestBid != null && market.bestAsk != null) {
+        currentPrice = (market.bestBid + market.bestAsk) / 2;
+      } else if (market.lastTradePrice != null) {
+        currentPrice = market.lastTradePrice;
+      }
 
-        // Extract location from the question text, fallback to description, then default to US center
-        const location = extractLocation(market.question)
-          || extractLocation(market.description)
-          || { city: 'US', lat: 39.8 + (Math.random() - 0.5) * 10, lon: -98.5 + (Math.random() - 0.5) * 20 };
+      // Extract location from the question text, fallback to description, then default to US center
+      const location = extractLocation(market.question)
+        || extractLocation(market.description)
+        || { city: 'US', lat: 39.8 + (Math.random() - 0.5) * 10, lon: -98.5 + (Math.random() - 0.5) * 20 };
 
-        return {
-          id: market.id,
-          question: market.question,
-          description: market.description,
-          slug: market.slug,
-          volume: market.volume,
-          endDate: market.endDate,
-          tokenIds: {
-            yes: yesTokenId,
-            no: noTokenId,
-          },
-          currentPrice,
-          location,
-          image: market.image,
-        };
-      })
-    );
+      return {
+        id: market.id,
+        question: market.question,
+        description: market.description,
+        slug: market.slug,
+        volume: market.volume,
+        endDate: market.endDate,
+        tokenIds: {
+          yes: yesTokenId,
+          no: noTokenId,
+        },
+        currentPrice,
+        location,
+        image: market.image,
+      };
+    });
 
     return NextResponse.json(
       { markets: enrichedMarkets, count: enrichedMarkets.length },
