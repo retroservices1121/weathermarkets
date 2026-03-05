@@ -77,6 +77,49 @@ function RadarLayer({ visible }: { visible: boolean }) {
   return null;
 }
 
+// Generic OpenWeatherMap tile layer component
+function OWMTileLayer({ visible, layerName, opacity = 0.7, zIndex = 9 }: {
+  visible: boolean;
+  layerName: string;
+  opacity?: number;
+  zIndex?: number;
+}) {
+  const map = useMap();
+  const layerRef = useRef<L.TileLayer | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+      return;
+    }
+
+    const apiKey = process.env.NEXT_PUBLIC_OWM_API_KEY;
+    if (!apiKey) return;
+
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current);
+    }
+
+    layerRef.current = L.tileLayer(
+      `https://tile.openweathermap.org/map/${layerName}/{z}/{x}/{y}.png?appid=${apiKey}`,
+      { opacity, zIndex }
+    );
+    layerRef.current.addTo(map);
+
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+    };
+  }, [visible, map, layerName, opacity, zIndex]);
+
+  return null;
+}
+
 // Component to handle cloud tile layer
 function CloudLayer({ visible }: { visible: boolean }) {
   const map = useMap();
@@ -154,6 +197,9 @@ export default function MapInner({
       {/* Weather overlay layers */}
       <RadarLayer visible={layers.radar} />
       <CloudLayer visible={layers.clouds} />
+      <OWMTileLayer visible={layers.temperature} layerName="temp_new" opacity={0.6} zIndex={7} />
+      <OWMTileLayer visible={layers.wind} layerName="wind_new" opacity={0.6} zIndex={7} />
+      <OWMTileLayer visible={layers.precipitation} layerName="precipitation_new" opacity={0.6} zIndex={9} />
 
       {/* Market pins */}
       {weatherMarkets

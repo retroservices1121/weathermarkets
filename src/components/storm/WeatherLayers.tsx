@@ -9,6 +9,7 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  Droplets,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { MapLayers } from './WeatherMap';
@@ -26,6 +27,7 @@ const LAYER_CONFIG: {
   { key: 'radar', label: 'Radar', icon: CloudRain },
   { key: 'temperature', label: 'Temperature', icon: Thermometer },
   { key: 'wind', label: 'Wind', icon: Wind },
+  { key: 'precipitation', label: 'Precipitation', icon: Droplets },
   { key: 'clouds', label: 'Clouds', icon: Cloud },
   { key: 'alerts', label: 'Alerts', icon: AlertTriangle },
 ];
