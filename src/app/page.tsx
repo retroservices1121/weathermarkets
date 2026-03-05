@@ -8,14 +8,16 @@ import { apiClient } from '@/lib/api';
 import type { PolymarketEvent } from '@/types';
 
 type SortOption = 'volume' | 'newest' | 'ending';
-type WeatherFilter = 'all' | 'temperature' | 'storms' | 'earthquakes' | 'climate';
+type WeatherFilter = 'all' | 'temperature' | 'weather' | 'hurricanes' | 'earthquakes' | 'global-temp' | 'natural-disasters';
 
 const WEATHER_FILTERS: { value: WeatherFilter; label: string; icon: string }[] = [
-  { value: 'all', label: 'All Weather', icon: '🌍' },
+  { value: 'all', label: 'All', icon: '🌍' },
   { value: 'temperature', label: 'Temperature', icon: '🌡️' },
-  { value: 'storms', label: 'Storms', icon: '🌪️' },
+  { value: 'weather', label: 'Weather', icon: '⛅' },
+  { value: 'hurricanes', label: 'Hurricanes', icon: '🌀' },
   { value: 'earthquakes', label: 'Earthquakes', icon: '🌋' },
-  { value: 'climate', label: 'Climate', icon: '🌎' },
+  { value: 'global-temp', label: 'Global Temp', icon: '🌎' },
+  { value: 'natural-disasters', label: 'Natural Disasters', icon: '🌪️' },
 ];
 
 function matchesFilter(event: PolymarketEvent, filter: WeatherFilter): boolean {
@@ -23,13 +25,17 @@ function matchesFilter(event: PolymarketEvent, filter: WeatherFilter): boolean {
   const text = `${event.title} ${event.description ?? ''}`.toLowerCase();
   switch (filter) {
     case 'temperature':
-      return text.includes('temperature') || text.includes('°') || text.includes('highest temp') || text.includes('hottest') || text.includes('coldest');
-    case 'storms':
-      return text.includes('storm') || text.includes('hurricane') || text.includes('tornado') || text.includes('cyclone') || text.includes('typhoon');
+      return text.includes('temperature') || text.includes('highest temp') || text.includes('hottest') || text.includes('coldest') || /\d+\s*[°ºf]/i.test(text);
+    case 'weather':
+      return text.includes('storm') || text.includes('tornado') || text.includes('precipitation') || text.includes('rain') || text.includes('snow') || text.includes('wind') || text.includes('weather');
+    case 'hurricanes':
+      return text.includes('hurricane') || text.includes('cyclone') || text.includes('typhoon') || text.includes('tropical storm') || text.includes('landfall') || text.includes('category');
     case 'earthquakes':
-      return text.includes('earthquake') || text.includes('seismic') || text.includes('quake');
-    case 'climate':
-      return text.includes('climate') || text.includes('global warming') || text.includes('sea level') || text.includes('hottest year') || text.includes('rank among');
+      return text.includes('earthquake') || text.includes('seismic') || text.includes('quake') || text.includes('megaquake');
+    case 'global-temp':
+      return text.includes('hottest year') || text.includes('rank among') || text.includes('on record') || text.includes('global') || text.includes('sea ice') || text.includes('arctic') || text.includes('climate');
+    case 'natural-disasters':
+      return text.includes('earthquake') || text.includes('volcano') || text.includes('eruption') || text.includes('tsunami') || text.includes('meteor') || text.includes('disaster') || text.includes('tornado');
     default:
       return true;
   }
@@ -49,11 +55,14 @@ function SearchParamsHandler({ setSearchQuery, setWeatherFilter }: { setSearchQu
   useEffect(() => {
     if (urlCategory) {
       const categoryMap: Record<string, WeatherFilter> = {
-        'Temperature': 'temperature',
-        'Storms': 'storms',
-        'Earthquakes': 'earthquakes',
-        'Climate': 'climate',
+        'All': 'all',
         'All Weather': 'all',
+        'Temperature': 'temperature',
+        'Weather': 'weather',
+        'Hurricanes': 'hurricanes',
+        'Earthquakes': 'earthquakes',
+        'Global Temp': 'global-temp',
+        'Natural Disasters': 'natural-disasters',
       };
       const filter = categoryMap[urlCategory];
       if (filter) {

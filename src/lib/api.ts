@@ -464,25 +464,61 @@ class ApiClient {
   }
 
   /**
-   * Fetch weather events using Polymarket's tag_slug=weather parameter.
-   * This directly queries the weather category (polymarket.com/climate-science/weather)
-   * and returns all tagged events without client-side keyword filtering.
+   * Fetch all weather/climate events from Polymarket using tag_slug.
+   * Fetches from all climate-science subcategories and deduplicates.
    */
   async getWeatherEvents(): Promise<PolymarketEvent[]> {
+    const TAG_SLUGS = [
+      'weather',           // main weather section
+      'temperature',       // daily temperature markets
+      'earthquakes',       // earthquake markets
+      'hurricanes',        // hurricane markets
+      'global-temp',       // global temperature records
+      'natural-disasters', // natural disaster markets
+    ];
+
     try {
-      const { data } = await this.gamma.get('/events', {
-        params: {
-          limit: 100,
-          active: true,
-          closed: false,
-          order: 'volume24hr',
-          ascending: false,
-          tag_slug: 'weather',
-        },
-        timeout: 20000,
+      const results = await Promise.all(
+        TAG_SLUGS.map(async (slug) => {
+          try {
+            const { data } = await this.gamma.get('/events', {
+              params: {
+                limit: 100,
+                active: true,
+                closed: false,
+                order: 'volume24hr',
+                ascending: false,
+                tag_slug: slug,
+              },
+              timeout: 20000,
+            });
+            return (Array.isArray(data) ? data : []).map(normalizeEvent);
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      // Deduplicate events by ID
+      const seenIds = new Set<string>();
+      const allEvents: PolymarketEvent[] = [];
+      for (const eventList of results) {
+        for (const event of eventList) {
+          if (!seenIds.has(event.id)) {
+            seenIds.add(event.id);
+            allEvents.push(event);
+          }
+        }
+      }
+
+      // Sort by 24hr volume descending
+      allEvents.sort((a, b) => {
+        const va = typeof a.volume24hr === 'number' ? a.volume24hr : 0;
+        const vb = typeof b.volume24hr === 'number' ? b.volume24hr : 0;
+        return vb - va;
       });
-      const events = (Array.isArray(data) ? data : []).map(normalizeEvent);
-      return events;
+
+      return allEvents;
     } catch (error) {
       console.error('Failed to fetch weather events:', error);
       return [];
