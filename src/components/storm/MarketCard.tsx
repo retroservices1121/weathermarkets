@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X,
   ExternalLink,
@@ -11,6 +11,7 @@ import {
   Droplets,
   Thermometer,
   Wind,
+  Loader2,
 } from 'lucide-react';
 import { formatVolume, formatCompactNumber, getTimeAgo } from '@/lib/utils';
 import type { WeatherMarket } from '@/hooks/useWeatherMarkets';
@@ -18,6 +19,10 @@ import type { Trade } from '@/types';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { EdgeSignal } from './EdgeSignal';
 import { ConsensusMeter } from './ConsensusMeter';
+import { usePrivy } from '@privy-io/react-auth';
+import { useTradingSession } from '@/hooks/useTradingSession';
+import { useTradeExecution, calculatePlatformFee } from '@/hooks/useTradeExecution';
+import { FEE_RATE } from '@/lib/constants';
 
 interface MarketCardProps {
   market: WeatherMarket;
@@ -31,6 +36,193 @@ interface MarketCardProps {
     bids: { price: number; size: number }[];
     asks: { price: number; size: number }[];
   } | null;
+}
+
+const QUICK_AMOUNTS = [1, 5, 10, 25];
+
+function QuickTrade({ market }: { market: WeatherMarket }) {
+  const [selectedOutcome, setSelectedOutcome] = useState<'YES' | 'NO'>('YES');
+  const [amount, setAmount] = useState('');
+
+  let authenticated = false;
+  let login: (() => void) | undefined;
+  try {
+    const privy = usePrivy();
+    authenticated = privy.authenticated;
+    login = privy.login;
+  } catch {
+    // Privy not available
+  }
+
+  const { clobClient, isReady: sessionReady, isInitializing, initialize } = useTradingSession();
+  const { execute, isSubmitting, result, error: tradeError } = useTradeExecution(clobClient);
+
+  const price = selectedOutcome === 'YES'
+    ? (market.currentPrice ?? 0)
+    : 1 - (market.currentPrice ?? 0);
+  const numAmount = parseFloat(amount) || 0;
+  const shares = price > 0 ? numAmount / price : 0;
+  const potentialReturn = shares - numAmount;
+  const { fee } = calculatePlatformFee(numAmount);
+
+  // Initialize trading session when wallet is connected
+  useEffect(() => {
+    if (authenticated && !sessionReady && !isInitializing) {
+      initialize();
+    }
+  }, [authenticated, sessionReady, isInitializing, initialize]);
+
+  const handleTrade = useCallback(async () => {
+    if (!numAmount || numAmount <= 0) return;
+    const tokenId = selectedOutcome === 'YES' ? market.tokenIds.yes : market.tokenIds.no;
+    await execute({
+      tokenId,
+      side: 'BUY',
+      price,
+      size: shares,
+      orderType: 'market',
+    });
+  }, [numAmount, selectedOutcome, market.tokenIds, price, shares, execute]);
+
+  const isYes = selectedOutcome === 'YES';
+
+  return (
+    <div className="bg-[#12141a] rounded-xl border border-gray-800/30 p-4 space-y-3">
+      <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+        Quick Trade
+      </h3>
+
+      {/* Outcome tabs */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSelectedOutcome('YES')}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
+            isYes
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+              : 'bg-[#1a1d26] text-gray-400 border border-gray-700/50 hover:border-gray-600'
+          }`}
+        >
+          YES {Math.round((market.currentPrice ?? 0) * 100)}¢
+        </button>
+        <button
+          onClick={() => setSelectedOutcome('NO')}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
+            !isYes
+              ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+              : 'bg-[#1a1d26] text-gray-400 border border-gray-700/50 hover:border-gray-600'
+          }`}
+        >
+          NO {Math.round((1 - (market.currentPrice ?? 0)) * 100)}¢
+        </button>
+      </div>
+
+      {/* Amount input */}
+      <div>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+            className="w-full bg-[#1a1d26] border border-gray-700/50 rounded-lg pl-7 pr-3 py-2.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
+          />
+        </div>
+      </div>
+
+      {/* Quick amount buttons */}
+      <div className="grid grid-cols-4 gap-2">
+        {QUICK_AMOUNTS.map((val) => (
+          <button
+            key={val}
+            onClick={() => setAmount(val.toString())}
+            className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              amount === val.toString()
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                : 'bg-[#1a1d26] text-gray-400 border border-gray-700/50 hover:border-gray-600'
+            }`}
+          >
+            ${val}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary */}
+      {numAmount > 0 && (
+        <div className="bg-[#0a0e1a] rounded-lg p-3 space-y-1.5 text-xs">
+          <div className="flex justify-between text-gray-400">
+            <span>Shares</span>
+            <span className="text-white font-mono tabular-nums">{shares.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-gray-400">
+            <span>Potential return</span>
+            <span className={`font-mono tabular-nums ${isYes ? 'text-emerald-400' : 'text-red-400'}`}>
+              +${potentialReturn.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between text-gray-400">
+            <span>Platform fee ({(FEE_RATE * 100).toFixed(2)}%)</span>
+            <span className="text-gray-500 font-mono tabular-nums">${fee.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Trade / Connect button */}
+      {!authenticated ? (
+        <button
+          onClick={() => login?.()}
+          className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm rounded-xl transition-colors"
+        >
+          Connect Wallet
+        </button>
+      ) : (
+        <button
+          onClick={handleTrade}
+          disabled={!numAmount || numAmount <= 0 || isSubmitting || (!sessionReady && !isInitializing)}
+          className={`w-full py-2.5 font-bold text-sm rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+            isYes
+              ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+              : 'bg-red-500 hover:bg-red-600 text-white'
+          }`}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Placing order...
+            </>
+          ) : isInitializing ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Initializing...
+            </>
+          ) : (
+            `Buy ${selectedOutcome}`
+          )}
+        </button>
+      )}
+
+      {/* Trade result feedback */}
+      {result?.success && (
+        <p className="text-emerald-400 text-xs text-center">Order placed successfully!</p>
+      )}
+      {tradeError && (
+        <p className="text-red-400 text-xs text-center">{tradeError}</p>
+      )}
+
+      {/* Small link to Polymarket */}
+      <a
+        href={`https://polymarket.com/event/${market.slug}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-1 text-gray-500 hover:text-gray-400 text-xs transition-colors"
+      >
+        View on Polymarket
+        <ExternalLink className="w-3 h-3" />
+      </a>
+    </div>
+  );
 }
 
 export function MarketCard({
@@ -160,6 +352,9 @@ export function MarketCard({
               </p>
             </div>
           </div>
+
+          {/* Quick Trade Widget */}
+          <QuickTrade market={market} />
 
           {/* Bid/Ask Spread */}
           {(bestBid !== null || bestAsk !== null) && (
@@ -347,17 +542,6 @@ export function MarketCard({
               </div>
             </div>
           )}
-
-          {/* Trade on Polymarket Button */}
-          <a
-            href={`https://polymarket.com/event/${market.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 bg-[#00d4ff] hover:bg-[#00b8e0] text-[#0a0e1a] font-bold text-sm rounded-xl transition-colors"
-          >
-            Trade on Polymarket
-            <ExternalLink className="w-4 h-4" />
-          </a>
         </div>
       </div>
     </>

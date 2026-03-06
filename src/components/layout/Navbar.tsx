@@ -61,7 +61,7 @@ export function Navbar({ onSearch }: NavbarProps = {}) {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-[#0f1117]/95 backdrop-blur-sm border-b border-gray-800 shadow-sm">
+    <nav className="sticky top-0 z-[1300] bg-[#0f1117]/95 backdrop-blur-sm border-b border-gray-800 shadow-sm">
       <div className="px-4 lg:px-6">
         <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
           {/* Logo */}
